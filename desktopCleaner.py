@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 import itertools
 from tkinter import (Tk, Checkbutton, IntVar, Button, Label, messagebox, Listbox, Scrollbar, Toplevel, END)
+import threading
 
 def get_desktop_path():
     user_profile = Path(os.environ.get("USERPROFILE"))
@@ -25,24 +26,28 @@ def run_cleanup():
     recursive = recursive_var.get()
     delete_temp = delete_temp_var.get()
 
-    files_to_delete = find_files_to_clean(desktop_path, recursive, delete_temp)
+    cleanup_status = Label(root, text="Cleaning in progress...", fg="blue")
+    cleanup_status.pack()
 
-    if not files_to_delete:
-        messagebox.showinfo("Nothing to clean", "No matching files found.")
-        return
+    def do_cleanup():
+        files_to_delete = find_files_to_clean(desktop_path, recursive, delete_temp)
 
-    confirm = messagebox.askyesno("Confirm", f"Delete {len(files_to_delete)} files?")
-    if not confirm:
-        return
+        if not files_to_delete:
+            root.after(0, lambda: messagebox.showinfo("Nothing to clean", "No matching files found."))
+            root.after(0, cleanup_status.destroy)
+            return
 
-    for file in files_to_delete:
-        try:
-            file.unlink()
-            print(f"Deleted: {file}")
-        except Exception as e:
-            print(f"Failed: {file} — {e}")
+        for file in files_to_delete:
+            try:
+                file.unlink()
+                print(f"Deleted: {file}")
+            except Exception as e:
+                print(f"Failed: {file} — {e}")
 
-    messagebox.showinfo("Done", f"Deleted {len(files_to_delete)} files.")
+        root.after(0, lambda: messagebox.showinfo("Done", f"Deleted {len(files_to_delete)} files."))
+        root.after(0, cleanup_status.destroy)
+
+    threading.Thread(target=do_cleanup, daemon=True).start()
 
 def preview_cleanup():
     desktop_path = get_desktop_path()
@@ -53,7 +58,7 @@ def preview_cleanup():
     preview_win.title("Preview Files to be Deleted")
     preview_win.geometry("500x400")
 
-    label = Label(preview_win, text="Loading preview...")
+    label = Label(preview_win, text="Scanning files...")
     label.pack()
 
     listbox = Listbox(preview_win, width=80)
@@ -62,19 +67,32 @@ def preview_cleanup():
     scrollbar.pack(side="right", fill="y")
     listbox.pack(fill="both", expand=True)
 
-    def load_files():
+    spinner_cycle = itertools.cycle(["|", "/", "-", "\\"])
+    preview_win.spinner_active = True
+
+    def animate_spinner():
+        if preview_win.spinner_active:
+            label.config(text=f"Scanning files... {next(spinner_cycle)}")
+            preview_win.after(100, animate_spinner)
+
+    def scan_files():
         files = find_files_to_clean(desktop_path, recursive, delete_temp)
-        listbox.delete(0, END)
 
-        if not files:
-            listbox.insert(END, "No matching files found.")
-        else:
-            for f in files:
-                listbox.insert(END, str(f))
+        def update_ui():
+            listbox.delete(0, END)
+            if not files:
+                listbox.insert(END, "No matching files found.")
+            else:
+                for f in files:
+                    listbox.insert(END, str(f))
+            label.config(text=f"Found {len(files)} file(s)")
+            preview_win.spinner_active = False
 
-        label.config(text=f"Found {len(files)} file(s)")
+        preview_win.after(0, update_ui)
 
-    preview_win.after(100, load_files)  # Schedule after UI loads
+    # Start the animation and scanning thread
+    animate_spinner()
+    threading.Thread(target=scan_files, daemon=True).start()
 
 
 # ----- UI -----
