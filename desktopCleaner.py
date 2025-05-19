@@ -4,6 +4,8 @@ from pathlib import Path
 import itertools
 from tkinter import (Tk, Checkbutton, IntVar, Button, Label, messagebox, Listbox, Scrollbar, Toplevel, END)
 import threading
+from desktopOrganiser import folders_by_type
+
 
 def get_desktop_path():
     user_profile = Path(os.environ.get("USERPROFILE"))
@@ -38,11 +40,27 @@ def run_cleanup():
             return
 
         for file in files_to_delete:
-            try:
-                file.unlink()
-                print(f"Deleted: {file}")
-            except Exception as e:
-                print(f"Failed: {file} — {e}")
+            if sort_by_type:
+                moved = False
+                for folder_name, extensions in folders_by_type.items():
+                    if file.suffix.lower() in extensions:
+                        target_folder = desktop_path / folder_name
+                        target_folder.mkdir(exist_ok=True)
+                        try:
+                            shutil.move(str(file), str(target_folder / file.name))
+                            print(f"Moved {file.name} → {folder_name}/")
+                            moved = True
+                            break
+                        except Exception as e:
+                            print(f"Failed to move {file.name}: {e}")
+                if not moved:
+                    print(f"Unsorted: {file.name}")
+            elif delete_temp and file.suffix in [".log", ".tmp"]:
+                try:
+                    file.unlink()
+                    print(f"Deleted: {file}")
+                except Exception as e:
+                    print(f"Failed to delete {file}: {e}")
 
         root.after(0, lambda: messagebox.showinfo("Done", f"Deleted {len(files_to_delete)} files."))
         root.after(0, cleanup_status.destroy)
