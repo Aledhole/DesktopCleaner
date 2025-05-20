@@ -3,14 +3,15 @@ from desktopOrganiser import (
     )
 
 from tkinter import (
-    Tk, Checkbutton, IntVar, Button, Label, messagebox,
-    Listbox, Scrollbar, Toplevel, END, Entry, StringVar, Frame
+    Checkbutton, IntVar, Button, Label, messagebox,
+    Listbox, Scrollbar, Toplevel, END, Entry, StringVar, Frame, filedialog
 )
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
 import shutil
 import itertools
 import threading
-
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
 def find_files_to_clean(folder_path, recursive=False, delete_temp=False, sort_by_type=False):
     files = folder_path.rglob("*") if recursive else folder_path.iterdir()
@@ -33,7 +34,9 @@ def find_files_to_clean(folder_path, recursive=False, delete_temp=False, sort_by
     return selected_files
 
 def run_cleanup():
-    desktop_path = get_desktop_path()
+
+    folder_path = selected_folder if selected_folder else get_desktop_path()
+
     recursive = recursive_var.get()
     delete_temp = delete_temp_var.get()
     sort_by_type = sort_files_var.get()
@@ -133,9 +136,16 @@ def on_close():
     save_skip_list(skip_extensions_list, category_vars)
     root.destroy()
 
+def choose_folder():
+    global selected_folder
+    path = filedialog.askdirectory()
+    if path:
+        selected_folder = Path(path)
+        selected_folder_label.config(text=f"Selected Folder:\n{path}")   
 
 # ---------------- UI --------------------
-root = Tk()
+
+root = TkinterDnD.Tk()
 root.title("Desktop Cleanup Tool")
 root.geometry("600x600")
 
@@ -150,6 +160,8 @@ delete_temp_var = IntVar()
 sort_files_var = IntVar()
 
 skip_extensions_list = []
+selected_folder = None
+
 current_extension = StringVar()
 category_vars = {
     category: IntVar(value=1)  
@@ -168,6 +180,12 @@ for category, var in category_vars.items():
 
 Button(root, text="Preview", command=preview_cleanup).pack(pady=10)
 Button(root, text="Run Cleanup", command=run_cleanup).pack(pady=5)
+
+
+
+selected_folder_label = Label(root, text="No folder selected. Default: Desktop")
+selected_folder_label.pack(pady=(5, 10))
+Button(root, text="Choose Folder", command=choose_folder).pack(pady=(10, 0))
 
 Label(root, text="Skip extensions:").pack(pady=(10, 0))
 

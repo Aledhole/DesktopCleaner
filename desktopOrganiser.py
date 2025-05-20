@@ -15,6 +15,15 @@ folders_by_type = {
     "Scripts": [".py", ".js", ".sh", ".rb"]
 }
 
+
+def get_desktop_path():
+    user_profile = Path(os.environ.get("USERPROFILE"))
+    one_drive = user_profile / "OneDrive" / "Desktop"
+    fallback = user_profile / "Desktop"
+    return one_drive if one_drive.exists() else fallback
+
+
+
 def load_skip_list(skip_extensions_list, skip_listbox, category_vars):
     try:
         with open("skip_config.json", "r") as f:
@@ -64,13 +73,4 @@ def remove_skip_extension():
         ext = skip_listbox.get(index)
         skip_listbox.delete(index)
         skip_extensions_list.remove(ext)
-
-        
-def get_desktop_path():
-    user_profile = Path(os.environ.get("USERPROFILE"))
-    one_drive = user_profile / "OneDrive" / "Desktop"
-    fallback = user_profile / "Desktop"
-    return one_drive if one_drive.exists() else fallback
-
-
 
