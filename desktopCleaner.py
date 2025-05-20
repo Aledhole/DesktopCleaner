@@ -1,24 +1,15 @@
-from desktopOrganiser import folders_by_type, get_desktop_path
-
-import shutil
-import itertools
-import threading
+from desktopOrganiser import (
+    folders_by_type, get_desktop_path, load_skip_list, save_skip_list, add_skip_extension, remove_skip_extension
+    )
 
 from tkinter import (
     Tk, Checkbutton, IntVar, Button, Label, messagebox,
     Listbox, Scrollbar, Toplevel, END, Entry, StringVar, Frame
 )
 
-
-def add_skip_extension():
-    ext = current_extension.get().strip().lower()
-    
-    if ext and not ext.startswith("."):
-        ext = "." + ext
-    if ext and ext not in skip_extensions_list:
-        skip_extensions_list.append(ext)
-        skip_listbox.insert(END, ext)
-    current_extension.set("")
+import shutil
+import itertools
+import threading
 
 
 def find_files_to_clean(folder_path, recursive=False, delete_temp=False, sort_by_type=False):
@@ -67,6 +58,8 @@ def run_cleanup():
             if sort_by_type:
                 moved = False
                 for folder_name, extensions in folders_by_type.items():
+                    if not category_vars[folder_name].get():
+                        continue
                     if file.suffix.lower() in extensions:
                         target_folder = desktop_path / folder_name
                         target_folder.mkdir(exist_ok=True)
@@ -136,10 +129,18 @@ def preview_cleanup():
     animate_spinner()
     threading.Thread(target=scan_files, daemon=True).start()
 
+def on_close():
+    save_skip_list(skip_extensions_list, category_vars)
+    root.destroy()
+
+
 # ---------------- UI --------------------
 root = Tk()
 root.title("Desktop Cleanup Tool")
 root.geometry("600x600")
+
+root.protocol("WM_DELETE_WINDOW", on_close)
+Label(root, text="Add file extensions to skip (e.g., .lnk, .url)").pack()
 
 
 Label(root, text="Cleanup Desktop:").pack(pady=10)
@@ -150,12 +151,20 @@ sort_files_var = IntVar()
 
 skip_extensions_list = []
 current_extension = StringVar()
+category_vars = {
+    category: IntVar(value=1)  
+    for category in folders_by_type
+}
 
-skip_extensions_var = StringVar()
+
 
 Checkbutton(root, text="Include Subfolders", variable=recursive_var).pack(anchor="w", padx=20)
 Checkbutton(root, text="Delete .log/.tmp files", variable=delete_temp_var).pack(anchor="w", padx=20)
 Checkbutton(root, text="Move files into folders", variable=sort_files_var).pack(anchor="w", padx=20)
+Label(root, text="File Categories to Sort:").pack(pady=(10, 0))
+for category, var in category_vars.items():
+    Checkbutton(root, text=category, variable=var).pack(anchor="w", padx=40)
+
 
 Button(root, text="Preview", command=preview_cleanup).pack(pady=10)
 Button(root, text="Run Cleanup", command=run_cleanup).pack(pady=5)
@@ -169,6 +178,9 @@ Entry(entry_frame, textvariable=current_extension, width=20).pack(side="left", p
 Button(entry_frame, text="Add", command=add_skip_extension).pack(side="left")
 
 skip_listbox = Listbox(root, height=4, width=30)
-skip_listbox.pack(pady=(5, 10))
+skip_listbox.pack(pady=(5, 5))
 
+Button(root, text="Remove Selected", command=remove_skip_extension).pack(pady=(0, 10))
+
+load_skip_list(skip_extensions_list, skip_listbox, category_vars)
 root.mainloop()
