@@ -175,7 +175,7 @@ def on_close():
 
 root = DnDWindow(themename="darkly")
 root.title("Desktop Cleanup Tool")
-root.geometry("600x800")
+root.geometry("500x500")
 root.protocol("WM_DELETE_WINDOW", on_close)
 
 recursive_var = IntVar()
@@ -192,7 +192,15 @@ category_vars = {category: IntVar(value=1) for category in folders_by_type}
 header_frame = Frame(root)
 header_frame.pack(fill="x", pady=10, padx=10)
 Button(header_frame, text="☀️", command=root.toggle_theme).pack(side="right")
-Button(header_frame, text="Choose Folder", command=choose_folder).pack(side="left", padx=10)
+
+# --- Folder Selection ---
+folder_frame = Frame(header_frame)
+folder_frame.pack(side="left", padx=(10, 0))
+Button(folder_frame, text="Choose Folder", command=choose_folder).pack(side="left")
+selected_folder_label = Label(folder_frame, text="No folder selected.\nDefault: Desktop")
+selected_folder_label.pack(side="left", padx=10)
+
+
 
 # --- Menu for File Categories & Cleanup Options ---
 menu_bar = Menu(root)
@@ -210,21 +218,9 @@ menu_bar.add_cascade(label="File Categories ▾", menu=file_menu)
 menu_bar.add_cascade(label="Cleanup Options ▾", menu=options_menu)
 root.config(menu=menu_bar)
 
-# --- Folder Path Display ---
-folder_frame = Frame(root)
-folder_frame.pack(pady=(5, 10))
-selected_folder_label = Label(folder_frame, text="No folder selected. Default: Desktop")
-selected_folder_label.pack()
-
-# --- Buttons Section ---
-button_frame = Frame(root)
-button_frame.pack(pady=15)
-Button(button_frame, text="Preview", width=20, command=preview_cleanup).pack(pady=2)
-Button(button_frame, text="Run Cleanup", width=20, command=run_cleanup).pack(pady=2)
-Button(button_frame, text="Undo Last Cleanup", width=20, command=undo_last_cleanup).pack(pady=2)
 
 # --- Delete Extensions ---
-Label(root, text="Extensions to Delete (dangerous):").pack()
+Label(root, text="Delete Files").pack()
 delete_frame = Frame(root)
 delete_frame.pack(pady=5)
 Entry(delete_frame, textvariable=delete_extension_input, width=20).pack(side="left", padx=5)
@@ -235,7 +231,7 @@ for ext in delete_extensions_list:
     delete_listbox.insert(END, ext)
 
 # --- Skip Extensions ---
-Label(root, text="Skip Extensions:").pack(pady=(10, 0))
+Label(root, text="Skip Files:").pack(pady=(10, 0))
 skip_frame = Frame(root)
 skip_frame.pack()
 Entry(skip_frame, textvariable=current_extension, width=20).pack(side="left", padx=5)
@@ -243,6 +239,14 @@ Button(skip_frame, text="Add", command=add_skip_extension).pack(side="left")
 skip_listbox = Listbox(root, height=4, width=40)
 skip_listbox.pack(pady=5)
 Button(root, text="Remove Selected", command=remove_skip_extension).pack(pady=(0, 10))
+
+
+# --- Buttons Section ---
+button_frame = Frame(root)
+button_frame.pack(pady=15)
+Button(button_frame, text="Preview", width=20, command=preview_cleanup).pack(pady=2)
+Button(button_frame, text="Run Cleanup", width=20, command=run_cleanup).pack(pady=2)
+Button(button_frame, text="Undo Last Cleanup", width=20, command=undo_last_cleanup).pack(pady=2)
 
 load_skip_list(skip_extensions_list, skip_listbox, category_vars)
 root.mainloop()
