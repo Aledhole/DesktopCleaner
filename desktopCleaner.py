@@ -191,27 +191,30 @@ category_vars = {category: IntVar(value=1) for category in folders_by_type}
 # --- Top Header ---
 header_frame = Frame(root)
 header_frame.pack(fill="x", pady=10, padx=10)
-
 Button(header_frame, text="☀️", command=root.toggle_theme).pack(side="right")
+Button(header_frame, text="Choose Folder", command=choose_folder).pack(side="left", padx=10)
 
-# --- Menu for File Categories ---
+# --- Menu for File Categories & Cleanup Options ---
 menu_bar = Menu(root)
 file_menu = Menu(menu_bar, tearoff=0)
 
 for category, var in category_vars.items():
     file_menu.add_checkbutton(label=category, variable=var)
 
+options_menu = Menu(menu_bar, tearoff=0)
+options_menu.add_checkbutton(label="Include Subfolders", variable=recursive_var)
+options_menu.add_checkbutton(label="Delete files", variable=delete_temp_var)
+options_menu.add_checkbutton(label="Move files into folders", variable=sort_files_var)
+
 menu_bar.add_cascade(label="File Categories ▾", menu=file_menu)
+menu_bar.add_cascade(label="Cleanup Options ▾", menu=options_menu)
 root.config(menu=menu_bar)
 
-# --- Cleanup Options Section ---
-cleanup_frame = Frame(root)
-cleanup_frame.pack(pady=10, fill="x", padx=20)
-
-Label(cleanup_frame, text="Cleanup Options:").pack(anchor="w")
-Checkbutton(cleanup_frame, text="Include Subfolders", variable=recursive_var).pack(anchor="w")
-Checkbutton(cleanup_frame, text="Delete files", variable=delete_temp_var).pack(anchor="w")
-Checkbutton(cleanup_frame, text="Move files into folders", variable=sort_files_var).pack(anchor="w")
+# --- Folder Path Display ---
+folder_frame = Frame(root)
+folder_frame.pack(pady=(5, 10))
+selected_folder_label = Label(folder_frame, text="No folder selected. Default: Desktop")
+selected_folder_label.pack()
 
 # --- Buttons Section ---
 button_frame = Frame(root)
@@ -231,12 +234,6 @@ delete_listbox.pack(pady=5)
 for ext in delete_extensions_list:
     delete_listbox.insert(END, ext)
 
-# --- Folder Selection ---
-Label(root, text="Folder Selection:").pack(pady=(10, 0))
-selected_folder_label = Label(root, text="No folder selected. Default: Desktop")
-selected_folder_label.pack()
-Button(root, text="Choose Folder", command=choose_folder).pack(pady=(0, 10))
-
 # --- Skip Extensions ---
 Label(root, text="Skip Extensions:").pack(pady=(10, 0))
 skip_frame = Frame(root)
@@ -249,4 +246,6 @@ Button(root, text="Remove Selected", command=remove_skip_extension).pack(pady=(0
 
 load_skip_list(skip_extensions_list, skip_listbox, category_vars)
 root.mainloop()
+
+
 
