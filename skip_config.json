@@ -1,0 +1,12 @@
+{
+  "skips": [],
+  "categories": {
+    "Images": 1,
+    "Documents": 1,
+    "Videos": 1,
+    "Audio": 1,
+    "Archives": 1,
+    "Executables": 1,
+    "Scripts": 1
+  }
+}

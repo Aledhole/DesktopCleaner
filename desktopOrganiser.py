@@ -74,3 +74,11 @@ def remove_skip_extension():
         skip_listbox.delete(index)
         skip_extensions_list.remove(ext)
 
+def add_delete_extension():
+    ext = delete_extension_input.get().strip().lower()
+    if ext and not ext.startswith("."):
+        ext = "." + ext
+    if ext and ext not in delete_extensions_list:
+        delete_extensions_list.append(ext)
+        delete_listbox.insert(END, ext)
+    delete_extension_input.set("")

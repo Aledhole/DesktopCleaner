@@ -1,32 +1,36 @@
 from desktopOrganiser import (
-    folders_by_type, get_desktop_path, load_skip_list, save_skip_list, add_skip_extension, remove_skip_extension
-    )
-
+    folders_by_type, get_desktop_path, load_skip_list, save_skip_list, 
+    add_skip_extension, remove_skip_extension, add_delete_extension
+)
 from tkinter import (
     Checkbutton, IntVar, Button, Label, messagebox,
-    Listbox, Scrollbar, Toplevel, END, Entry, StringVar, Frame, filedialog
+    Listbox, Scrollbar, Toplevel, END, Entry, StringVar, Frame, filedialog,
+    Menubutton, Menu
 )
-from tkinterdnd2 import DND_FILES, TkinterDnD
-
+from appStyling import DnDWindow
 import shutil
 import itertools
 import threading
-from tkinterdnd2 import DND_FILES, TkinterDnD
+import json
+from pathlib import Path
+import os
+
+# ----- Core Logic -----
 
 def find_files_to_clean(folder_path, recursive=False, delete_temp=False, sort_by_type=False):
     files = folder_path.rglob("*") if recursive else folder_path.iterdir()
-    selected_files = []    
+    selected_files = []
 
     for file in files:
         if file.is_file():
-            ext = file.suffix.lower()  
+            ext = file.suffix.lower()
 
             if ext in skip_extensions_list:
                 continue
             if file.name.startswith("."):
                 continue
 
-            if delete_temp and ext in [".log", ".tmp"]:
+            if delete_temp and ext in delete_extensions_list:
                 selected_files.append(file)
             elif sort_by_type:
                 selected_files.append(file)
@@ -34,7 +38,6 @@ def find_files_to_clean(folder_path, recursive=False, delete_temp=False, sort_by
     return selected_files
 
 def run_cleanup():
-
     folder_path = selected_folder if selected_folder else get_desktop_path()
 
     recursive = recursive_var.get()
@@ -46,17 +49,18 @@ def run_cleanup():
 
     def do_cleanup():
         files_to_clean = find_files_to_clean(
-            desktop_path,
+            folder_path,
             recursive,
             delete_temp,
             sort_by_type
         )
-        
+
         if not files_to_clean:
             root.after(0, lambda: messagebox.showinfo("Nothing to clean", "No matching files found."))
             root.after(0, cleanup_status.destroy)
             return
 
+        moved_files = []
         for file in files_to_clean:
             if sort_by_type:
                 moved = False
@@ -64,31 +68,55 @@ def run_cleanup():
                     if not category_vars[folder_name].get():
                         continue
                     if file.suffix.lower() in extensions:
-                        target_folder = desktop_path / folder_name
+                        target_folder = folder_path / folder_name
                         target_folder.mkdir(exist_ok=True)
                         try:
                             shutil.move(str(file), str(target_folder / file.name))
-                            print(f"Moved: {file.name} → {folder_name}/")
+                            moved_files.append({"from": str(file), "to": str(target_folder / file.name)})
                             moved = True
                             break
                         except Exception as e:
                             print(f"Failed to move {file.name}: {e}")
                 if not moved:
                     print(f"Unsorted: {file.name}")
-            elif delete_temp and file.suffix in [".log", ".tmp"]:
+            elif delete_temp and file.suffix.lower() in delete_extensions_list:
                 try:
                     file.unlink()
-                    print(f"Deleted: {file}")
                 except Exception as e:
                     print(f"Failed: {file} — {e}")
+
+        if moved_files:
+            with open("undo_cleanup.json", "w") as undo_file:
+                json.dump(moved_files, undo_file, indent=2)
 
         root.after(0, lambda: messagebox.showinfo("Done", "Cleanup complete."))
         root.after(0, cleanup_status.destroy)
 
     threading.Thread(target=do_cleanup, daemon=True).start()
 
+def undo_last_cleanup():
+    try:
+        with open("undo_cleanup.json", "r") as f:
+            moves = json.load(f)
+
+        for entry in moves:
+            to_path = Path(entry["to"])
+            from_path = Path(entry["from"])
+
+            if to_path.exists():
+                to_path.rename(from_path)
+            else:
+                print(f"Missing: {to_path} (already moved or deleted)")
+
+        os.remove("undo_cleanup.json")
+        messagebox.showinfo("Undo Complete", "All moved files were restored.")
+    except FileNotFoundError:
+        messagebox.showwarning("Undo Failed", "No previous cleanup to undo.")
+    except Exception as e:
+        messagebox.showerror("Undo Error", str(e))
+
 def preview_cleanup():
-    desktop_path = get_desktop_path()
+    folder_path = selected_folder if selected_folder else get_desktop_path()
     recursive = recursive_var.get()
     delete_temp = delete_temp_var.get()
     sort_by_type = sort_files_var.get()
@@ -115,7 +143,7 @@ def preview_cleanup():
             preview_win.after(100, animate_spinner)
 
     def scan_files():
-        files = find_files_to_clean(desktop_path, recursive, delete_temp, sort_by_type)
+        files = find_files_to_clean(folder_path, recursive, delete_temp, sort_by_type)
 
         def update_ui():
             listbox.delete(0, END)
@@ -132,73 +160,93 @@ def preview_cleanup():
     animate_spinner()
     threading.Thread(target=scan_files, daemon=True).start()
 
-def on_close():
-    save_skip_list(skip_extensions_list, category_vars)
-    root.destroy()
-
 def choose_folder():
     global selected_folder
     path = filedialog.askdirectory()
     if path:
         selected_folder = Path(path)
-        selected_folder_label.config(text=f"Selected Folder:\n{path}")   
+        selected_folder_label.config(text=f"Selected Folder:\n{path}")
 
-# ---------------- UI --------------------
+def on_close():
+    save_skip_list(skip_extensions_list, category_vars)
+    root.destroy()
 
-root = TkinterDnD.Tk()
+# ----- UI Setup -----
+
+root = DnDWindow(themename="darkly")
 root.title("Desktop Cleanup Tool")
-root.geometry("600x600")
-
+root.geometry("600x800")
 root.protocol("WM_DELETE_WINDOW", on_close)
-Label(root, text="Add file extensions to skip (e.g., .lnk, .url)").pack()
-
-
-Label(root, text="Cleanup Desktop:").pack(pady=10)
 
 recursive_var = IntVar()
 delete_temp_var = IntVar()
 sort_files_var = IntVar()
-
 skip_extensions_list = []
-selected_folder = None
-
+delete_extensions_list = [".log", ".tmp"]
+delete_extension_input = StringVar()
 current_extension = StringVar()
-category_vars = {
-    category: IntVar(value=1)  
-    for category in folders_by_type
-}
+selected_folder = None
+category_vars = {category: IntVar(value=1) for category in folders_by_type}
 
+# --- Top Header ---
+header_frame = Frame(root)
+header_frame.pack(fill="x", pady=10, padx=10)
 
+Button(header_frame, text="☀️", command=root.toggle_theme).pack(side="right")
 
-Checkbutton(root, text="Include Subfolders", variable=recursive_var).pack(anchor="w", padx=20)
-Checkbutton(root, text="Delete .log/.tmp files", variable=delete_temp_var).pack(anchor="w", padx=20)
-Checkbutton(root, text="Move files into folders", variable=sort_files_var).pack(anchor="w", padx=20)
-Label(root, text="File Categories to Sort:").pack(pady=(10, 0))
+# --- Menu for File Categories ---
+menu_bar = Menu(root)
+file_menu = Menu(menu_bar, tearoff=0)
+
 for category, var in category_vars.items():
-    Checkbutton(root, text=category, variable=var).pack(anchor="w", padx=40)
+    file_menu.add_checkbutton(label=category, variable=var)
 
+menu_bar.add_cascade(label="File Categories ▾", menu=file_menu)
+root.config(menu=menu_bar)
 
-Button(root, text="Preview", command=preview_cleanup).pack(pady=10)
-Button(root, text="Run Cleanup", command=run_cleanup).pack(pady=5)
+# --- Cleanup Options Section ---
+cleanup_frame = Frame(root)
+cleanup_frame.pack(pady=10, fill="x", padx=20)
 
+Label(cleanup_frame, text="Cleanup Options:").pack(anchor="w")
+Checkbutton(cleanup_frame, text="Include Subfolders", variable=recursive_var).pack(anchor="w")
+Checkbutton(cleanup_frame, text="Delete files", variable=delete_temp_var).pack(anchor="w")
+Checkbutton(cleanup_frame, text="Move files into folders", variable=sort_files_var).pack(anchor="w")
 
+# --- Buttons Section ---
+button_frame = Frame(root)
+button_frame.pack(pady=15)
+Button(button_frame, text="Preview", width=20, command=preview_cleanup).pack(pady=2)
+Button(button_frame, text="Run Cleanup", width=20, command=run_cleanup).pack(pady=2)
+Button(button_frame, text="Undo Last Cleanup", width=20, command=undo_last_cleanup).pack(pady=2)
 
+# --- Delete Extensions ---
+Label(root, text="Extensions to Delete (dangerous):").pack()
+delete_frame = Frame(root)
+delete_frame.pack(pady=5)
+Entry(delete_frame, textvariable=delete_extension_input, width=20).pack(side="left", padx=5)
+Button(delete_frame, text="Add", command=add_delete_extension).pack(side="left")
+delete_listbox = Listbox(root, height=4, width=40)
+delete_listbox.pack(pady=5)
+for ext in delete_extensions_list:
+    delete_listbox.insert(END, ext)
+
+# --- Folder Selection ---
+Label(root, text="Folder Selection:").pack(pady=(10, 0))
 selected_folder_label = Label(root, text="No folder selected. Default: Desktop")
-selected_folder_label.pack(pady=(5, 10))
-Button(root, text="Choose Folder", command=choose_folder).pack(pady=(10, 0))
+selected_folder_label.pack()
+Button(root, text="Choose Folder", command=choose_folder).pack(pady=(0, 10))
 
-Label(root, text="Skip extensions:").pack(pady=(10, 0))
-
-entry_frame = Frame(root)
-entry_frame.pack()
-
-Entry(entry_frame, textvariable=current_extension, width=20).pack(side="left", padx=5)
-Button(entry_frame, text="Add", command=add_skip_extension).pack(side="left")
-
-skip_listbox = Listbox(root, height=4, width=30)
-skip_listbox.pack(pady=(5, 5))
-
+# --- Skip Extensions ---
+Label(root, text="Skip Extensions:").pack(pady=(10, 0))
+skip_frame = Frame(root)
+skip_frame.pack()
+Entry(skip_frame, textvariable=current_extension, width=20).pack(side="left", padx=5)
+Button(skip_frame, text="Add", command=add_skip_extension).pack(side="left")
+skip_listbox = Listbox(root, height=4, width=40)
+skip_listbox.pack(pady=5)
 Button(root, text="Remove Selected", command=remove_skip_extension).pack(pady=(0, 10))
 
 load_skip_list(skip_extensions_list, skip_listbox, category_vars)
 root.mainloop()
+
