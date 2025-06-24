@@ -18,6 +18,6 @@ Desktop Cleaner Tool!
 - [`tkinterdnd2`](https://pypi.org/project/tkinterdnd2/)
 
 
-Install dependencies:
+## Install dependencies
 
 pip install ttkbootstrap tkinterdnd2
