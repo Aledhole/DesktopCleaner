@@ -5,7 +5,7 @@ from desktopOrganiser import (
 from tkinter import (
     Checkbutton, IntVar, Button, Label, messagebox,
     Listbox, Scrollbar, Toplevel, END, Entry, StringVar, Frame, filedialog,
-    Menubutton, Menu
+    Menubutton, Menu, LabelFrame
 )
 from appStyling import DnDWindow
 import shutil
@@ -219,26 +219,33 @@ menu_bar.add_cascade(label="Cleanup Options ▾", menu=options_menu)
 root.config(menu=menu_bar)
 
 
-# --- Delete Extensions ---
-Label(root, text="Delete Files").pack()
-delete_frame = Frame(root)
-delete_frame.pack(pady=5)
-Entry(delete_frame, textvariable=delete_extension_input, width=20).pack(side="left", padx=5)
-Button(delete_frame, text="Add", command=add_delete_extension).pack(side="left")
-delete_listbox = Listbox(root, height=4, width=40)
-delete_listbox.pack(pady=5)
-for ext in delete_extensions_list:
-    delete_listbox.insert(END, ext)
+# --- Delete Extensions Section ---
+delete_frame = LabelFrame(root, text="Files to Delete:")
+delete_frame.pack(fill="x", padx=10, pady=10)
 
-# --- Skip Extensions ---
-Label(root, text="Skip Files:").pack(pady=(10, 0))
-skip_frame = Frame(root)
-skip_frame.pack()
-Entry(skip_frame, textvariable=current_extension, width=20).pack(side="left", padx=5)
-Button(skip_frame, text="Add", command=add_skip_extension).pack(side="left")
-skip_listbox = Listbox(root, height=4, width=40)
+del_input_frame = Frame(delete_frame)
+del_input_frame.pack(pady=5)
+Entry(del_input_frame, textvariable=delete_extension_input, width=20).pack(side="left", padx=5)
+Button(del_input_frame, text="Add", command=add_delete_extension).pack(side="left")
+
+delete_listbox = Listbox(delete_frame, height=4, width=40)
+delete_listbox.pack(pady=5)
+Button(delete_frame, text="Remove Selected", command=lambda: delete_listbox.delete(delete_listbox.curselection())).pack()
+
+
+# --- Skip Extensions Section ---
+skip_frame = LabelFrame(root, text="Files to Skip:")
+skip_frame.pack(fill="x", padx=10, pady=10)
+
+skip_input_frame = Frame(skip_frame)
+skip_input_frame.pack(pady=5)
+Entry(skip_input_frame, textvariable=current_extension, width=20).pack(side="left", padx=5)
+Button(skip_input_frame, text="Add", command=add_skip_extension).pack(side="left")
+
+skip_listbox = Listbox(skip_frame, height=4, width=40)
 skip_listbox.pack(pady=5)
-Button(root, text="Remove Selected", command=remove_skip_extension).pack(pady=(0, 10))
+Button(skip_frame, text="Remove Selected", command=remove_skip_extension).pack()
+
 
 
 # --- Buttons Section ---
@@ -249,6 +256,7 @@ Button(button_frame, text="Run Cleanup", width=20, command=run_cleanup).pack(pad
 Button(button_frame, text="Undo Last Cleanup", width=20, command=undo_last_cleanup).pack(pady=2)
 
 load_skip_list(skip_extensions_list, skip_listbox, category_vars)
+root.resizable(True, True)
 root.mainloop()
 
 
